@@ -1,15 +1,13 @@
-import { useState, useEffect, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Mail, Phone, Send } from "lucide-react";
+import { Mail, Phone, MapPin, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
 
 const Contact = () => {
   const { toast } = useToast();
-  const [searchParams, setSearchParams] = useSearchParams();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -17,77 +15,48 @@ const Contact = () => {
     company: "",
     message: "",
   });
-  const [timestamp, setTimestamp] = useState("");
-  const [timezone, setTimezone] = useState("");
-  
-  // Use ref to avoid stale closure issues with form data
-  const formDataRef = useRef(formData);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Keep ref in sync with state
-  useEffect(() => {
-    formDataRef.current = formData;
-  }, [formData]);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
 
-  useEffect(() => {
-    // Set timestamp and timezone on component mount
-    setTimestamp(new Date().toISOString());
-    setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
-    
-    // Check if form was just submitted
-    if (searchParams.get("submitted") === "true") {
-      toast({
-        title: "Message Sent!",
-        description: "We'll get back to you within 24 hours.",
-      });
-      // Clear the query parameter
-      setSearchParams({});
-    }
-  }, [searchParams, setSearchParams, toast]);
-
-  // Send data to n8n webhook on page hide as backup
-  useEffect(() => {
-    const handlePageHide = () => {
-      const currentData = formDataRef.current;
-      if (currentData.email) {
-        const webhookData = {
-          name: currentData.name,
-          email: currentData.email,
-          phone: currentData.phone,
-          company: currentData.company,
-          message: currentData.message,
+    try {
+      const response = await fetch("https://n8n.updryv.com/webhook/updryv-main-site-contact-form", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          company: formData.company,
+          message: formData.message,
           timestamp: new Date().toISOString(),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        };
-        
-        const blob = new Blob([JSON.stringify(webhookData)], { type: "application/json" });
-        navigator.sendBeacon("https://n8n.updryv.com/webhook/updryv-main-site-contact-form", blob);
-      }
-    };
-    
-    window.addEventListener('pagehide', handlePageHide);
-    return () => window.removeEventListener('pagehide', handlePageHide);
-  }, []); // Empty deps since we use ref
+        }),
+      });
 
-  const handleSubmitClick = () => {
-    // Send data IMMEDIATELY before form navigation occurs
-    const currentData = formDataRef.current;
-    if (currentData.email) {
-      const webhookData = {
-        name: currentData.name,
-        email: currentData.email,
-        phone: currentData.phone,
-        company: currentData.company,
-        message: currentData.message,
-        timestamp: new Date().toISOString(),
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      };
-      
-      const blob = new Blob([JSON.stringify(webhookData)], { type: "application/json" });
-      navigator.sendBeacon("https://n8n.updryv.com/webhook/updryv-main-site-contact-form", blob);
+      if (response.ok) {
+        toast({
+          title: "Message Sent!",
+          description: "We'll get back to you within 24 hours.",
+        });
+        setFormData({ name: "", email: "", phone: "", company: "", message: "" });
+      } else {
+        throw new Error("Failed to send message");
+      }
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again or contact us directly.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    // Update timestamp for form submission
-    setTimestamp(new Date().toISOString());
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -121,9 +90,7 @@ const Contact = () => {
             <Card>
               <CardContent className="p-8">
                 <h2 className="font-heading text-3xl font-bold mb-6">Send Us a Message</h2>
-                <form action="/contact?submitted=true" method="GET" className="space-y-6">
-                  <input type="hidden" name="timestamp" value={timestamp} />
-                  <input type="hidden" name="timezone" value={timezone} />
+                <form onSubmit={handleSubmit} className="space-y-6">
                   <div>
                     <label htmlFor="name" className="block text-sm font-medium mb-2">
                       Full Name *
@@ -195,12 +162,9 @@ const Contact = () => {
                     />
                   </div>
 
-                  <input 
-                    type="submit" 
-                    value="Send Message"
-                    onClick={handleSubmitClick}
-                    className="w-full h-11 px-8 inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium bg-gradient-accent text-primary-foreground hover:opacity-90 transition-opacity cursor-pointer disabled:pointer-events-none disabled:opacity-50"
-                  />
+                  <Button type="submit" size="lg" className="w-full bg-gradient-accent" disabled={isSubmitting}>
+                    {isSubmitting ? "Sending..." : "Send Message"} <Send className="ml-2 w-4 h-4" />
+                  </Button>
                 </form>
               </CardContent>
             </Card>
