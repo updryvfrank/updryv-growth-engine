@@ -5,12 +5,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, Phone, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
 const Contact = () => {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+  
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -32,8 +32,7 @@ const Contact = () => {
     }
   }, [searchParams, toast]);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleBeaconSend = () => {
     setIsSubmitting(true);
 
     const payload = {
@@ -52,7 +51,6 @@ const Contact = () => {
       const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
       const sent = navigator.sendBeacon(webhookUrl, blob);
 
-      // Fallback to fetch if sendBeacon is not supported or fails
       if (!sent) {
         void fetch(webhookUrl, {
           method: "POST",
@@ -63,9 +61,6 @@ const Contact = () => {
           keepalive: true,
         });
       }
-
-      // Navigate to success state so the toast effect can run
-      navigate("/contact?submitted=true");
     } catch (error) {
       console.error("Error submitting contact form", error);
       toast({
@@ -73,8 +68,6 @@ const Contact = () => {
         description: "Please try sending your message again.",
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -109,7 +102,7 @@ const Contact = () => {
             <Card>
               <CardContent className="p-8">
                 <h2 className="font-heading text-3xl font-bold mb-6">Send Us a Message</h2>
-                <form onSubmit={handleSubmit} action="/contact?submitted=true" method="POST" className="space-y-6">
+                <form action="/contact?submitted=true" method="POST" className="space-y-6">
                   <div>
                     <label htmlFor="name" className="block text-sm font-medium mb-2">
                       Full Name *
@@ -184,6 +177,7 @@ const Contact = () => {
                   <input 
                     type="submit" 
                     value={isSubmitting ? "Sending..." : "Send Message"}
+                    onClick={handleBeaconSend}
                     className="w-full h-11 px-8 bg-gradient-accent text-primary-foreground font-medium rounded-md cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={isSubmitting}
                   />
