@@ -1,13 +1,11 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Mail, Phone, MapPin, Send } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Mail, Phone } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const Contact = () => {
-  const { toast } = useToast();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -15,49 +13,6 @@ const Contact = () => {
     company: "",
     message: "",
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      const response = await fetch("https://n8n.updryv.com/webhook/updryv-main-site-contact-form", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          company: formData.company,
-          message: formData.message,
-          timestamp: new Date().toISOString(),
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        }),
-      });
-
-      if (response.ok) {
-        toast({
-          title: "Message Sent!",
-          description: "We'll get back to you within 24 hours.",
-        });
-        setFormData({ name: "", email: "", phone: "", company: "", message: "" });
-      } else {
-        throw new Error("Failed to send message");
-      }
-    } catch (error) {
-      console.error("Error submitting form:", error);
-      toast({
-        title: "Error",
-        description: "Failed to send message. Please try again or contact us directly.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData((prev) => ({
@@ -65,6 +20,32 @@ const Contact = () => {
       [e.target.name]: e.target.value,
     }));
   };
+
+  // Send data to n8n webhook on page navigation (HighLevel-compliant approach)
+  useEffect(() => {
+    const handlePageHide = () => {
+      // Only send if form has been filled
+      if (formData.email && formData.name && formData.message) {
+        const payload = JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          company: formData.company,
+          message: formData.message,
+          timestamp: new Date().toISOString(),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        });
+
+        navigator.sendBeacon(
+          "https://n8n.updryv.com/webhook/updryv-main-site-contact-form",
+          new Blob([payload], { type: "application/json" })
+        );
+      }
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    return () => window.removeEventListener("pagehide", handlePageHide);
+  }, [formData]);
 
   return (
     <div className="min-h-screen pt-20">
@@ -90,7 +71,13 @@ const Contact = () => {
             <Card>
               <CardContent className="p-8">
                 <h2 className="font-heading text-3xl font-bold mb-6">Send Us a Message</h2>
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form action="/thank-you" method="GET" className="space-y-6">
+                  <input 
+                    type="hidden" 
+                    name="timezone" 
+                    value={Intl.DateTimeFormat().resolvedOptions().timeZone}
+                  />
+                  
                   <div>
                     <label htmlFor="name" className="block text-sm font-medium mb-2">
                       Full Name *
@@ -162,9 +149,11 @@ const Contact = () => {
                     />
                   </div>
 
-                  <Button type="submit" size="lg" className="w-full bg-gradient-accent" disabled={isSubmitting}>
-                    {isSubmitting ? "Sending..." : "Send Message"} <Send className="ml-2 w-4 h-4" />
-                  </Button>
+                  <input 
+                    type="submit" 
+                    value="Send Message"
+                    className="w-full h-11 px-8 inline-flex items-center justify-center rounded-md text-sm font-medium bg-gradient-accent text-primary-foreground hover:opacity-90 transition-opacity cursor-pointer"
+                  />
                 </form>
               </CardContent>
             </Card>
