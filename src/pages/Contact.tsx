@@ -5,11 +5,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, Phone, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 
 const Contact = () => {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -32,7 +33,10 @@ const Contact = () => {
   }, [searchParams, toast]);
 
   const handleSubmit = (e: React.FormEvent) => {
-    // Send data to n8n webhook using beacon (non-blocking, parallel to native form submission)
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    // Send data to n8n webhook using beacon
     const webhookData = new Blob([JSON.stringify({
       name: formData.name,
       email: formData.email,
@@ -45,7 +49,8 @@ const Contact = () => {
 
     navigator.sendBeacon("https://n8n.updryv.com/webhook/updryv-main-site-contact-form", webhookData);
     
-    // Form will continue with native submission for HighLevel tracking
+    // Navigate to success state
+    navigate("/contact?submitted=true");
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
