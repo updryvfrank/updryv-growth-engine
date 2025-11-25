@@ -32,12 +32,11 @@ const Contact = () => {
     }
   }, [searchParams, toast]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Send data to n8n webhook using beacon
-    const webhookData = new Blob([JSON.stringify({
+    const payload = {
       name: formData.name,
       email: formData.email,
       phone: formData.phone,
@@ -45,12 +44,38 @@ const Contact = () => {
       message: formData.message,
       timestamp: new Date().toISOString(),
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    })], { type: "application/json" });
+    };
 
-    navigator.sendBeacon("https://n8n.updryv.com/webhook/updryv-main-site-contact-form", webhookData);
-    
-    // Navigate to success state
-    navigate("/contact?submitted=true");
+    const webhookUrl = "https://n8n.updryv.com/webhook/updryv-main-site-contact-form";
+
+    try {
+      const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+      const sent = navigator.sendBeacon(webhookUrl, blob);
+
+      // Fallback to fetch if sendBeacon is not supported or fails
+      if (!sent) {
+        void fetch(webhookUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+          keepalive: true,
+        });
+      }
+
+      // Navigate to success state so the toast effect can run
+      navigate("/contact?submitted=true");
+    } catch (error) {
+      console.error("Error submitting contact form", error);
+      toast({
+        title: "Something went wrong",
+        description: "Please try sending your message again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
