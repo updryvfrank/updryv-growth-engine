@@ -173,22 +173,6 @@ const Contact = () => {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardContent className="p-6 flex items-start gap-4">
-                  <div className="p-3 bg-accent/10 rounded-lg">
-                    <MapPin className="w-6 h-6 text-accent" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-1">Visit Us</h3>
-                    <p className="text-muted-foreground">
-                      123 Business Ave, Suite 100
-                      <br />
-                      New York, NY 10001
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
               <Card className="bg-gradient-hero text-primary-foreground">
                 <CardContent className="p-6">
                   <h3 className="font-heading text-xl font-bold mb-2">Free Strategy Session</h3>
