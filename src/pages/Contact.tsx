@@ -19,7 +19,6 @@ const Contact = () => {
   });
   const [timestamp, setTimestamp] = useState("");
   const [timezone, setTimezone] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     // Set timestamp and timezone on component mount
@@ -40,7 +39,7 @@ const Contact = () => {
   // Send data to n8n webhook when page unloads (form submission triggers navigation)
   useEffect(() => {
     const handleBeforeUnload = () => {
-      if (isSubmitting && formData.email) {
+      if (formData.email) {
         const webhookData = {
           name: formData.name,
           email: formData.email,
@@ -58,12 +57,11 @@ const Contact = () => {
     
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isSubmitting, formData]);
+  }, [formData]);
 
   const handleSubmitClick = () => {
-    // Update timestamp and mark as submitting just before form submission
+    // Update timestamp just before form submission
     setTimestamp(new Date().toISOString());
-    setIsSubmitting(true);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
