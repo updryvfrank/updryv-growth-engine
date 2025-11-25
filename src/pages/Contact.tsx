@@ -19,6 +19,7 @@ const Contact = () => {
   });
   const [timestamp, setTimestamp] = useState("");
   const [timezone, setTimezone] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     // Set timestamp and timezone on component mount
@@ -36,26 +37,33 @@ const Contact = () => {
     }
   }, [searchParams, setSearchParams, toast]);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    // Update timestamp just before submission
-    setTimestamp(new Date().toISOString());
-    
-    // Send data to n8n webhook using sendBeacon (non-blocking)
-    const webhookData = {
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      company: formData.company,
-      message: formData.message,
-      timestamp: new Date().toISOString(),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  // Send data to n8n webhook when page unloads (form submission triggers navigation)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (isSubmitting && formData.email) {
+        const webhookData = {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          company: formData.company,
+          message: formData.message,
+          timestamp: new Date().toISOString(),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        };
+        
+        const blob = new Blob([JSON.stringify(webhookData)], { type: "application/json" });
+        navigator.sendBeacon("https://n8n.updryv.com/webhook/updryv-main-site-contact-form", blob);
+      }
     };
     
-    const blob = new Blob([JSON.stringify(webhookData)], { type: "application/json" });
-    navigator.sendBeacon("https://n8n.updryv.com/webhook/updryv-main-site-contact-form", blob);
-    
-    // Let the native form submission proceed for HighLevel tracking
-    // Form will POST to /contact?submitted=true
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isSubmitting, formData]);
+
+  const handleSubmitClick = () => {
+    // Update timestamp and mark as submitting just before form submission
+    setTimestamp(new Date().toISOString());
+    setIsSubmitting(true);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -89,7 +97,7 @@ const Contact = () => {
             <Card>
               <CardContent className="p-8">
                 <h2 className="font-heading text-3xl font-bold mb-6">Send Us a Message</h2>
-                <form onSubmit={handleSubmit} action="/contact?submitted=true" method="POST" className="space-y-6">
+                <form action="/contact?submitted=true" method="GET" className="space-y-6">
                   <input type="hidden" name="timestamp" value={timestamp} />
                   <input type="hidden" name="timezone" value={timezone} />
                   <div>
@@ -165,7 +173,8 @@ const Contact = () => {
 
                   <input 
                     type="submit" 
-                    value="Send Message" 
+                    value="Send Message"
+                    onClick={handleSubmitClick}
                     className="w-full h-11 px-8 inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium bg-gradient-accent text-primary-foreground hover:opacity-90 transition-opacity cursor-pointer disabled:pointer-events-none disabled:opacity-50"
                   />
                 </form>
