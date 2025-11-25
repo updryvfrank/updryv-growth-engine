@@ -48,25 +48,16 @@ const Contact = () => {
 
     const webhookUrl = "https://n8n.updryv.com/webhook/updryv-main-site-contact-form";
 
-    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
-    const sent = navigator.sendBeacon(webhookUrl, blob);
+    void fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    });
 
-    // Fallback to fetch if sendBeacon is not supported or fails
-    if (!sent) {
-      void fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-        keepalive: true,
-      });
-    }
-
-    // Navigate to success state so the toast effect can run
-    window.history.replaceState({}, "", "/contact?submitted=true");
-    
-    // Clear form
+    // Clear form and show toast without reloading the page
     setFormData({
       name: "",
       email: "",
@@ -74,16 +65,14 @@ const Contact = () => {
       company: "",
       message: "",
     });
-    
-    // Show toast immediately
+
     toast({
       title: "Message Sent!",
       description: "We'll get back to you within 24 hours.",
     });
-    
+
     setIsSubmitting(false);
   };
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData((prev) => ({
       ...prev,
