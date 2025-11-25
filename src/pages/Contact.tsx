@@ -34,6 +34,7 @@ const Contact = () => {
           company: formData.company,
           message: formData.message,
           timestamp: new Date().toISOString(),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }),
       });
 
