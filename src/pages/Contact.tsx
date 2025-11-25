@@ -33,6 +33,7 @@ const Contact = () => {
   }, [searchParams, toast]);
 
   const handleBeaconSend = () => {
+    // Fire-and-forget webhook call; do NOT block native form submit
     setIsSubmitting(true);
 
     const payload = {
@@ -48,19 +49,14 @@ const Contact = () => {
     const webhookUrl = "https://n8n.updryv.com/webhook/updryv-main-site-contact-form";
 
     try {
-      const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
-      const sent = navigator.sendBeacon(webhookUrl, blob);
-
-      if (!sent) {
-        void fetch(webhookUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-          keepalive: true,
-        });
-      }
+      void fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      });
     } catch (error) {
       console.error("Error submitting contact form", error);
       toast({
@@ -68,6 +64,9 @@ const Contact = () => {
         description: "Please try sending your message again.",
         variant: "destructive",
       });
+    } finally {
+      // Ensure button never stays stuck
+      setIsSubmitting(false);
     }
   };
 
