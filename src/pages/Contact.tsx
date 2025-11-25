@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +19,14 @@ const Contact = () => {
   });
   const [timestamp, setTimestamp] = useState("");
   const [timezone, setTimezone] = useState("");
+  
+  // Use ref to avoid stale closure issues with form data
+  const formDataRef = useRef(formData);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
 
   useEffect(() => {
     // Set timestamp and timezone on component mount
@@ -36,16 +44,17 @@ const Contact = () => {
     }
   }, [searchParams, setSearchParams, toast]);
 
-  // Send data to n8n webhook when page unloads (form submission triggers navigation)
+  // Send data to n8n webhook on page hide as backup
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (formData.email) {
+    const handlePageHide = () => {
+      const currentData = formDataRef.current;
+      if (currentData.email) {
         const webhookData = {
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          company: formData.company,
-          message: formData.message,
+          name: currentData.name,
+          email: currentData.email,
+          phone: currentData.phone,
+          company: currentData.company,
+          message: currentData.message,
           timestamp: new Date().toISOString(),
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         };
@@ -55,12 +64,29 @@ const Contact = () => {
       }
     };
     
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [formData]);
+    window.addEventListener('pagehide', handlePageHide);
+    return () => window.removeEventListener('pagehide', handlePageHide);
+  }, []); // Empty deps since we use ref
 
   const handleSubmitClick = () => {
-    // Update timestamp just before form submission
+    // Send data IMMEDIATELY before form navigation occurs
+    const currentData = formDataRef.current;
+    if (currentData.email) {
+      const webhookData = {
+        name: currentData.name,
+        email: currentData.email,
+        phone: currentData.phone,
+        company: currentData.company,
+        message: currentData.message,
+        timestamp: new Date().toISOString(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      };
+      
+      const blob = new Blob([JSON.stringify(webhookData)], { type: "application/json" });
+      navigator.sendBeacon("https://n8n.updryv.com/webhook/updryv-main-site-contact-form", blob);
+    }
+    
+    // Update timestamp for form submission
     setTimestamp(new Date().toISOString());
   };
 
