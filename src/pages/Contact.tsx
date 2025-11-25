@@ -32,8 +32,8 @@ const Contact = () => {
     }
   }, [searchParams, toast]);
 
-  const handleBeaconSend = () => {
-    // Fire-and-forget webhook call; do NOT block native form submit
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     setIsSubmitting(true);
 
     const payload = {
@@ -48,7 +48,11 @@ const Contact = () => {
 
     const webhookUrl = "https://n8n.updryv.com/webhook/updryv-main-site-contact-form";
 
-    try {
+    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+    const sent = navigator.sendBeacon(webhookUrl, blob);
+
+    // Fallback to fetch if sendBeacon is not supported or fails
+    if (!sent) {
       void fetch(webhookUrl, {
         method: "POST",
         headers: {
@@ -57,17 +61,27 @@ const Contact = () => {
         body: JSON.stringify(payload),
         keepalive: true,
       });
-    } catch (error) {
-      console.error("Error submitting contact form", error);
-      toast({
-        title: "Something went wrong",
-        description: "Please try sending your message again.",
-        variant: "destructive",
-      });
-    } finally {
-      // Ensure button never stays stuck
-      setIsSubmitting(false);
     }
+
+    // Navigate to success state so the toast effect can run
+    window.history.replaceState({}, "", "/contact?submitted=true");
+    
+    // Clear form
+    setFormData({
+      name: "",
+      email: "",
+      phone: "",
+      company: "",
+      message: "",
+    });
+    
+    // Show toast immediately
+    toast({
+      title: "Message Sent!",
+      description: "We'll get back to you within 24 hours.",
+    });
+    
+    setIsSubmitting(false);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -101,7 +115,7 @@ const Contact = () => {
             <Card>
               <CardContent className="p-8">
                 <h2 className="font-heading text-3xl font-bold mb-6">Send Us a Message</h2>
-                <form action="/contact?submitted=true" method="POST" className="space-y-6">
+                <form onSubmit={handleSubmit} action="/contact?submitted=true" method="POST" className="space-y-6">
                   <div>
                     <label htmlFor="name" className="block text-sm font-medium mb-2">
                       Full Name *
@@ -176,7 +190,6 @@ const Contact = () => {
                   <input 
                     type="submit" 
                     value={isSubmitting ? "Sending..." : "Send Message"}
-                    onClick={handleBeaconSend}
                     className="w-full h-11 px-8 bg-gradient-accent text-primary-foreground font-medium rounded-md cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={isSubmitting}
                   />
