@@ -39,6 +39,18 @@ const Contact = () => {
       });
 
       if (response.ok) {
+        // Track form submission in GTM
+        (window as any).dataLayer = (window as any).dataLayer || [];
+        (window as any).dataLayer.push({
+          event: 'form_submission',
+          formName: 'contact_form',
+          formData: {
+            name: formData.name,
+            email: formData.email,
+            company: formData.company,
+          }
+        });
+        
         toast({
           title: "Message Sent!",
           description: "We'll get back to you within 24 hours.",
