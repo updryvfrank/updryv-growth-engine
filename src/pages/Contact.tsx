@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +14,14 @@ const Contact = () => {
     message: "",
   });
 
+  // Use ref to maintain latest form data for sendBeacon reliability
+  const formDataRef = useRef(formData);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData((prev) => ({
       ...prev,
@@ -21,31 +29,39 @@ const Contact = () => {
     }));
   };
 
-  // Send data to n8n webhook on page navigation (HighLevel-compliant approach)
+  // Function to send data to n8n webhook
+  const sendToWebhook = () => {
+    const data = formDataRef.current;
+    // Only send if form has been filled
+    if (data.email && data.name && data.message) {
+      const payload = JSON.stringify({
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        company: data.company,
+        message: data.message,
+        timestamp: new Date().toISOString(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
+
+      navigator.sendBeacon(
+        "https://n8n.updryv.com/webhook/updryv-main-site-contact-form",
+        new Blob([payload], { type: "application/json" })
+      );
+    }
+  };
+
+  // Click handler for submit button - fires before native form submission
+  const handleSubmitClick = () => {
+    sendToWebhook(); // Send immediately on click
+  };
+
+  // Backup: Send data to n8n webhook on page navigation (HighLevel-compliant approach)
   useEffect(() => {
-    const handlePageHide = () => {
-      // Only send if form has been filled
-      if (formData.email && formData.name && formData.message) {
-        const payload = JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          company: formData.company,
-          message: formData.message,
-          timestamp: new Date().toISOString(),
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        });
-
-        navigator.sendBeacon(
-          "https://n8n.updryv.com/webhook/updryv-main-site-contact-form",
-          new Blob([payload], { type: "application/json" })
-        );
-      }
-    };
-
+    const handlePageHide = () => sendToWebhook();
     window.addEventListener("pagehide", handlePageHide);
     return () => window.removeEventListener("pagehide", handlePageHide);
-  }, [formData]);
+  }, []); // Empty deps - handler reads from ref
 
   return (
     <div className="min-h-screen pt-20">
@@ -152,6 +168,7 @@ const Contact = () => {
                   <input 
                     type="submit" 
                     value="Send Message"
+                    onClick={handleSubmitClick}
                     className="w-full h-11 px-8 inline-flex items-center justify-center rounded-md text-sm font-medium bg-gradient-accent text-primary-foreground hover:opacity-90 transition-opacity cursor-pointer"
                   />
                 </form>
