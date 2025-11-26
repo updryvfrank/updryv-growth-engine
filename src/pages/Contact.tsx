@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Mail, Phone } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Mail, Phone, MapPin, Send } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const Contact = () => {
+  const { toast } = useToast();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -13,14 +15,49 @@ const Contact = () => {
     company: "",
     message: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Use ref to maintain latest form data for sendBeacon reliability
-  const formDataRef = useRef(formData);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
 
-  // Keep ref in sync with state
-  useEffect(() => {
-    formDataRef.current = formData;
-  }, [formData]);
+    try {
+      const response = await fetch("https://n8n.updryv.com/webhook/updryv-main-site-contact-form", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          company: formData.company,
+          message: formData.message,
+          timestamp: new Date().toISOString(),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Message Sent!",
+          description: "We'll get back to you within 24 hours.",
+        });
+        setFormData({ name: "", email: "", phone: "", company: "", message: "" });
+      } else {
+        throw new Error("Failed to send message");
+      }
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again or contact us directly.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData((prev) => ({
@@ -28,49 +65,6 @@ const Contact = () => {
       [e.target.name]: e.target.value,
     }));
   };
-
-  // Function to send data to n8n webhook
-  const sendToWebhook = () => {
-    const data = formDataRef.current;
-    // Only send if form has been filled
-    if (data.email && data.name && data.message) {
-      const payload = JSON.stringify({
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        company: data.company,
-        message: data.message,
-        timestamp: new Date().toISOString(),
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      });
-
-      if (!navigator.sendBeacon) {
-        console.warn("sendBeacon not supported in this browser; skipping webhook send.");
-        return;
-      }
-
-      const blob = new Blob([payload], { type: "application/json" });
-      const ok = navigator.sendBeacon(
-        "https://n8n.updryv.com/webhook/updryv-main-site-contact-form",
-        blob
-      );
-      console.log("sendToWebhook called", { ok, payload });
-    } else {
-      console.log("sendToWebhook skipped: missing required fields", data);
-    }
-  };
-
-  // Click handler for submit button - fires before native form submission
-  const handleSubmitClick = () => {
-    sendToWebhook(); // Send immediately on click
-  };
-
-  // Backup: Send data to n8n webhook on page navigation (HighLevel-compliant approach)
-  useEffect(() => {
-    const handlePageHide = () => sendToWebhook();
-    window.addEventListener("pagehide", handlePageHide);
-    return () => window.removeEventListener("pagehide", handlePageHide);
-  }, []); // Empty deps - handler reads from ref
 
   return (
     <div className="min-h-screen pt-20">
@@ -96,13 +90,7 @@ const Contact = () => {
             <Card>
               <CardContent className="p-8">
                 <h2 className="font-heading text-3xl font-bold mb-6">Send Us a Message</h2>
-                <form action="/thank-you" method="GET" className="space-y-6">
-                  <input 
-                    type="hidden" 
-                    name="timezone" 
-                    value={Intl.DateTimeFormat().resolvedOptions().timeZone}
-                  />
-                  
+                <form onSubmit={handleSubmit} className="space-y-6">
                   <div>
                     <label htmlFor="name" className="block text-sm font-medium mb-2">
                       Full Name *
@@ -174,12 +162,9 @@ const Contact = () => {
                     />
                   </div>
 
-                  <input 
-                    type="submit" 
-                    value="Send Message"
-                    onClick={handleSubmitClick}
-                    className="w-full h-11 px-8 inline-flex items-center justify-center rounded-md text-sm font-medium bg-gradient-accent text-primary-foreground hover:opacity-90 transition-opacity cursor-pointer"
-                  />
+                  <Button type="submit" size="lg" className="w-full bg-gradient-accent" disabled={isSubmitting}>
+                    {isSubmitting ? "Sending..." : "Send Message"} <Send className="ml-2 w-4 h-4" />
+                  </Button>
                 </form>
               </CardContent>
             </Card>
