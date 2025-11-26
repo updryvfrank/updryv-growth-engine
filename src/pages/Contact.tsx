@@ -44,10 +44,19 @@ const Contact = () => {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
 
-      navigator.sendBeacon(
+      if (!navigator.sendBeacon) {
+        console.warn("sendBeacon not supported in this browser; skipping webhook send.");
+        return;
+      }
+
+      const blob = new Blob([payload], { type: "application/json" });
+      const ok = navigator.sendBeacon(
         "https://n8n.updryv.com/webhook/updryv-main-site-contact-form",
-        new Blob([payload], { type: "application/json" })
+        blob
       );
+      console.log("sendToWebhook called", { ok, payload });
+    } else {
+      console.log("sendToWebhook skipped: missing required fields", data);
     }
   };
 
